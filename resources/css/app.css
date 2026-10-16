@@ -1,0 +1,53 @@
+@import 'tailwindcss';
+
+@source "../views/**/*.blade.php";
+@source "../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php";
+@source "../../storage/framework/views/*.php";
+@source "../../app/**/*.php";
+
+@theme {
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-mono: 'JetBrains Mono', Menlo, monospace;
+
+    --color-brand-50: #f0fdf4;
+    --color-brand-100: #dcfce7;
+    --color-brand-200: #bbf7d0;
+    --color-brand-500: #22c55e;
+    --color-brand-600: #16a34a;
+    --color-brand-700: #15803d;
+    --color-brand-800: #176B52;
+    --color-brand-900: #114f3c;
+    --color-brand-950: #0b3327;
+
+    --color-neutral-50: #F6F7F5;
+    --color-neutral-100: #EEEEEC;
+    --color-neutral-200: #E1E5E2;
+    --color-neutral-300: #D0D5D1;
+    --color-neutral-400: #9BA39E;
+    --color-neutral-500: #687078;
+    --color-neutral-700: #3D444A;
+    --color-neutral-800: #2F353A;
+    --color-neutral-900: #252A2E;
+    --color-neutral-950: #171A1C;
+}
+
+body {
+    font-family: var(--font-sans);
+    background-color: #F6F7F5;
+    color: #252A2E;
+}
+
+.font-mono {
+    font-family: var(--font-mono);
+    font-feature-settings: "tnum" 1, "zero" 1;
+}
+
+/* Enterprise clean scrollbars */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #F1F3F2; }
+::-webkit-scrollbar-thumb { background: #CBD2CE; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #9BA39E; }
+.clean-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #CBD2CE transparent;
+}

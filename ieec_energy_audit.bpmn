@@ -1,0 +1,411 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_IEEC" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler" exporterVersion="5.52.0" modeler:executionPlatform="Camunda Cloud" modeler:executionPlatformVersion="8.10.0">
+  <bpmn:process id="Process_IEEC_EnergyAudit" name="Industrial Energy Efficiency Copilot (IEEC) - Process Audit &#38; Mitigasi" isExecutable="true">
+    <bpmn:startEvent id="StartEvent_DataReceived" name="Data Masuk&#10;(CSV / IoT)">
+      <bpmn:outgoing>Flow_Start_To_MergeIngest</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:exclusiveGateway id="Gateway_MergeIngest">
+      <bpmn:incoming>Flow_Start_To_MergeIngest</bpmn:incoming>
+      <bpmn:incoming>Flow_From_Koreksi</bpmn:incoming>
+      <bpmn:outgoing>Flow_To_Ingest</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:serviceTask id="Task_IngestData" name="Ingesti &#38; Parsing&#10;Data Energi">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="ingest-energy-data" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_To_Ingest</bpmn:incoming>
+      <bpmn:outgoing>Flow_To_Validate</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="Task_ValidateDataQuality" name="Validasi Integritas&#10;Data Konsumsi">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="validate-energy-data" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_To_Validate</bpmn:incoming>
+      <bpmn:outgoing>Flow_To_GatewayDataValid</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:exclusiveGateway id="Gateway_DataValid" name="Data Valid?" default="Flow_DataValid_Yes">
+      <bpmn:incoming>Flow_To_GatewayDataValid</bpmn:incoming>
+      <bpmn:outgoing>Flow_DataValid_Yes</bpmn:outgoing>
+      <bpmn:outgoing>Flow_DataValid_No</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:userTask id="Task_KoreksiData" name="Koreksi Format /&#10;Input Ulang Data">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formId="Form_KoreksiData" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_DataValid_No</bpmn:incoming>
+      <bpmn:outgoing>Flow_From_Koreksi</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:serviceTask id="Task_CalcESDM_Compliance" name="Kalkulasi PP 33/2023&#10;(TOE &#38; SBM)">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="calculate-esdm-compliance" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_DataValid_Yes</bpmn:incoming>
+      <bpmn:outgoing>Flow_To_CalcIKE</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="Task_CalcIKE_And_EnB" name="Hitung IKE &#38;&#10;Baseline EnB">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="calculate-ike-baseline" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_To_CalcIKE</bpmn:incoming>
+      <bpmn:outgoing>Flow_To_DetectWaste</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="Task_DetectWaste_Anomalies" name="Deteksi Anomali &#38;&#10;Pemborosan">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="detect-waste-anomalies" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_To_DetectWaste</bpmn:incoming>
+      <bpmn:outgoing>Flow_To_CalcFinancial</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="Task_CalculateFinancialImpact" name="Kalkulasi Biaya PLN&#10;&#38; Reduksi Emisi">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="calculate-financial-carbon" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_To_CalcFinancial</bpmn:incoming>
+      <bpmn:outgoing>Flow_To_GatewayWaste</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:exclusiveGateway id="Gateway_CheckWaste" name="Terdeteksi&#10;Pemborosan?" default="Flow_Waste_No">
+      <bpmn:incoming>Flow_To_GatewayWaste</bpmn:incoming>
+      <bpmn:outgoing>Flow_Waste_Yes</bpmn:outgoing>
+      <bpmn:outgoing>Flow_Waste_No</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:serviceTask id="Task_GenerateNormalReport" name="Arsip Laporan&#10;Efisiensi Rutin">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="generate-normal-report" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Waste_No</bpmn:incoming>
+      <bpmn:outgoing>Flow_To_EndNormal</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="EndEvent_Normal" name="Fasilitas Beroperasi&#10;Efisien">
+      <bpmn:incoming>Flow_To_EndNormal</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:serviceTask id="Task_InjectContext_AICopilot" name="AI Copilot: Diagnosis&#10;&#38; 3 Rekomendasi">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="generate-ai-recommendations" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Waste_Yes</bpmn:incoming>
+      <bpmn:outgoing>Flow_Copilot_To_MergeReview</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:exclusiveGateway id="Gateway_MergeReview">
+      <bpmn:incoming>Flow_Copilot_To_MergeReview</bpmn:incoming>
+      <bpmn:incoming>Flow_From_ChatCopilot</bpmn:incoming>
+      <bpmn:outgoing>Flow_To_Review</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:userTask id="Task_ReviewRecommendation" name="Review Rekomendasi&#10;(Energy Manager)">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formId="Form_ReviewRecommendation" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_To_Review</bpmn:incoming>
+      <bpmn:outgoing>Flow_To_GatewayReview</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="Gateway_ReviewDecision" name="Keputusan&#10;Review?" default="Flow_Review_Approved">
+      <bpmn:incoming>Flow_To_GatewayReview</bpmn:incoming>
+      <bpmn:outgoing>Flow_Review_Approved</bpmn:outgoing>
+      <bpmn:outgoing>Flow_Review_Simulate</bpmn:outgoing>
+      <bpmn:outgoing>Flow_Review_Reject</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:userTask id="Task_ChatInteractiveCopilot" name="Tanya Copilot /&#10;Simulasi Skenario">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+        <zeebe:formDefinition formId="Form_ChatInteractiveCopilot" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Review_Simulate</bpmn:incoming>
+      <bpmn:outgoing>Flow_From_ChatCopilot</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:endEvent id="EndEvent_Rejected" name="Rekomendasi&#10;Ditolak">
+      <bpmn:incoming>Flow_Review_Reject</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:parallelGateway id="Gateway_Fork_Execution">
+      <bpmn:incoming>Flow_Review_Approved</bpmn:incoming>
+      <bpmn:outgoing>Flow_Fork_WorkOrder</bpmn:outgoing>
+      <bpmn:outgoing>Flow_Fork_Report</bpmn:outgoing>
+    </bpmn:parallelGateway>
+    <bpmn:serviceTask id="Task_DispatchWorkOrder" name="Disposisi Work Order&#10;Mitigasi Utilitas">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="dispatch-energy-workorder" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Fork_WorkOrder</bpmn:incoming>
+      <bpmn:outgoing>Flow_Join_WorkOrder</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="Task_ExportESDMReport" name="Ekspor Laporan Audit&#10;Standar ESDM">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="export-esdm-audit-report" retries="3" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Fork_Report</bpmn:incoming>
+      <bpmn:outgoing>Flow_Join_Report</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:parallelGateway id="Gateway_Join_Execution">
+      <bpmn:incoming>Flow_Join_WorkOrder</bpmn:incoming>
+      <bpmn:incoming>Flow_Join_Report</bpmn:incoming>
+      <bpmn:outgoing>Flow_To_EndAudit</bpmn:outgoing>
+    </bpmn:parallelGateway>
+    <bpmn:endEvent id="EndEvent_Completed" name="Audit Selesai &#38;&#10;Mitigasi Terjadwal">
+      <bpmn:incoming>Flow_To_EndAudit</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_Start_To_MergeIngest" sourceRef="StartEvent_DataReceived" targetRef="Gateway_MergeIngest" />
+    <bpmn:sequenceFlow id="Flow_To_Ingest" sourceRef="Gateway_MergeIngest" targetRef="Task_IngestData" />
+    <bpmn:sequenceFlow id="Flow_To_Validate" sourceRef="Task_IngestData" targetRef="Task_ValidateDataQuality" />
+    <bpmn:sequenceFlow id="Flow_To_GatewayDataValid" sourceRef="Task_ValidateDataQuality" targetRef="Gateway_DataValid" />
+    <bpmn:sequenceFlow id="Flow_DataValid_Yes" name="Ya" sourceRef="Gateway_DataValid" targetRef="Task_CalcESDM_Compliance" />
+    <bpmn:sequenceFlow id="Flow_DataValid_No" name="Tidak" sourceRef="Gateway_DataValid" targetRef="Task_KoreksiData">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=isDataValid = false</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_From_Koreksi" sourceRef="Task_KoreksiData" targetRef="Gateway_MergeIngest" />
+    <bpmn:sequenceFlow id="Flow_To_CalcIKE" sourceRef="Task_CalcESDM_Compliance" targetRef="Task_CalcIKE_And_EnB" />
+    <bpmn:sequenceFlow id="Flow_To_DetectWaste" sourceRef="Task_CalcIKE_And_EnB" targetRef="Task_DetectWaste_Anomalies" />
+    <bpmn:sequenceFlow id="Flow_To_CalcFinancial" sourceRef="Task_DetectWaste_Anomalies" targetRef="Task_CalculateFinancialImpact" />
+    <bpmn:sequenceFlow id="Flow_To_GatewayWaste" sourceRef="Task_CalculateFinancialImpact" targetRef="Gateway_CheckWaste" />
+    <bpmn:sequenceFlow id="Flow_Waste_Yes" name="Ya" sourceRef="Gateway_CheckWaste" targetRef="Task_InjectContext_AICopilot">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=terdapatPemborosan = true</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_Waste_No" name="Tidak (Normal)" sourceRef="Gateway_CheckWaste" targetRef="Task_GenerateNormalReport" />
+    <bpmn:sequenceFlow id="Flow_To_EndNormal" sourceRef="Task_GenerateNormalReport" targetRef="EndEvent_Normal" />
+    <bpmn:sequenceFlow id="Flow_Copilot_To_MergeReview" sourceRef="Task_InjectContext_AICopilot" targetRef="Gateway_MergeReview" />
+    <bpmn:sequenceFlow id="Flow_To_Review" sourceRef="Gateway_MergeReview" targetRef="Task_ReviewRecommendation" />
+    <bpmn:sequenceFlow id="Flow_To_GatewayReview" sourceRef="Task_ReviewRecommendation" targetRef="Gateway_ReviewDecision" />
+    <bpmn:sequenceFlow id="Flow_Review_Approved" name="Disetujui" sourceRef="Gateway_ReviewDecision" targetRef="Gateway_Fork_Execution" />
+    <bpmn:sequenceFlow id="Flow_Review_Simulate" name="Simulasi" sourceRef="Gateway_ReviewDecision" targetRef="Task_ChatInteractiveCopilot">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=keputusanReview = "SIMULATE"</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_From_ChatCopilot" sourceRef="Task_ChatInteractiveCopilot" targetRef="Gateway_MergeReview" />
+    <bpmn:sequenceFlow id="Flow_Review_Reject" name="Ditolak" sourceRef="Gateway_ReviewDecision" targetRef="EndEvent_Rejected">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=keputusanReview = "REJECTED"</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_Fork_WorkOrder" sourceRef="Gateway_Fork_Execution" targetRef="Task_DispatchWorkOrder" />
+    <bpmn:sequenceFlow id="Flow_Fork_Report" sourceRef="Gateway_Fork_Execution" targetRef="Task_ExportESDMReport" />
+    <bpmn:sequenceFlow id="Flow_Join_WorkOrder" sourceRef="Task_DispatchWorkOrder" targetRef="Gateway_Join_Execution" />
+    <bpmn:sequenceFlow id="Flow_Join_Report" sourceRef="Task_ExportESDMReport" targetRef="Gateway_Join_Execution" />
+    <bpmn:sequenceFlow id="Flow_To_EndAudit" sourceRef="Gateway_Join_Execution" targetRef="EndEvent_Completed" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_IEEC_EnergyAudit">
+      <bpmndi:BPMNShape id="StartEvent_DataReceived_di" bpmnElement="StartEvent_DataReceived">
+        <dc:Bounds x="162" y="222" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="151" y="265" width="58" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_MergeIngest_di" bpmnElement="Gateway_MergeIngest" isMarkerVisible="true">
+        <dc:Bounds x="245" y="215" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_IngestData_di" bpmnElement="Task_IngestData">
+        <dc:Bounds x="335" y="200" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_ValidateDataQuality_di" bpmnElement="Task_ValidateDataQuality">
+        <dc:Bounds x="485" y="200" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_DataValid_di" bpmnElement="Gateway_DataValid" isMarkerVisible="true">
+        <dc:Bounds x="635" y="215" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="632" y="272" width="57" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_KoreksiData_di" bpmnElement="Task_KoreksiData">
+        <dc:Bounds x="485" y="70" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_CalcESDM_Compliance_di" bpmnElement="Task_CalcESDM_Compliance">
+        <dc:Bounds x="725" y="200" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_CalcIKE_And_EnB_di" bpmnElement="Task_CalcIKE_And_EnB">
+        <dc:Bounds x="875" y="200" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_DetectWaste_Anomalies_di" bpmnElement="Task_DetectWaste_Anomalies">
+        <dc:Bounds x="1025" y="200" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_CalculateFinancialImpact_di" bpmnElement="Task_CalculateFinancialImpact">
+        <dc:Bounds x="1175" y="200" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_CheckWaste_di" bpmnElement="Gateway_CheckWaste" isMarkerVisible="true">
+        <dc:Bounds x="1325" y="215" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1316" y="176" width="68" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_GenerateNormalReport_di" bpmnElement="Task_GenerateNormalReport">
+        <dc:Bounds x="1295" y="350" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndEvent_Normal_di" bpmnElement="EndEvent_Normal">
+        <dc:Bounds x="1445" y="372" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1418" y="415" width="92" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_InjectContext_AICopilot_di" bpmnElement="Task_InjectContext_AICopilot">
+        <dc:Bounds x="1425" y="200" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_MergeReview_di" bpmnElement="Gateway_MergeReview" isMarkerVisible="true">
+        <dc:Bounds x="1575" y="215" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_ReviewRecommendation_di" bpmnElement="Task_ReviewRecommendation">
+        <dc:Bounds x="1665" y="200" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_ReviewDecision_di" bpmnElement="Gateway_ReviewDecision" isMarkerVisible="true">
+        <dc:Bounds x="1815" y="215" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1814" y="176" width="53" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_ChatInteractiveCopilot_di" bpmnElement="Task_ChatInteractiveCopilot">
+        <dc:Bounds x="1665" y="70" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndEvent_Rejected_di" bpmnElement="EndEvent_Rejected">
+        <dc:Bounds x="1822" y="372" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1807" y="415" width="67" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_Fork_Execution_di" bpmnElement="Gateway_Fork_Execution">
+        <dc:Bounds x="1905" y="215" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_DispatchWorkOrder_di" bpmnElement="Task_DispatchWorkOrder">
+        <dc:Bounds x="1995" y="130" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_ExportESDMReport_di" bpmnElement="Task_ExportESDMReport">
+        <dc:Bounds x="1995" y="270" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_Join_Execution_di" bpmnElement="Gateway_Join_Execution">
+        <dc:Bounds x="2145" y="215" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndEvent_Completed_di" bpmnElement="EndEvent_Completed">
+        <dc:Bounds x="2235" y="222" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="2211" y="265" width="85" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_Start_To_MergeIngest_di" bpmnElement="Flow_Start_To_MergeIngest">
+        <di:waypoint x="198" y="240" />
+        <di:waypoint x="245" y="240" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_To_Ingest_di" bpmnElement="Flow_To_Ingest">
+        <di:waypoint x="295" y="240" />
+        <di:waypoint x="335" y="240" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_To_Validate_di" bpmnElement="Flow_To_Validate">
+        <di:waypoint x="445" y="240" />
+        <di:waypoint x="485" y="240" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_To_GatewayDataValid_di" bpmnElement="Flow_To_GatewayDataValid">
+        <di:waypoint x="595" y="240" />
+        <di:waypoint x="635" y="240" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_DataValid_Yes_di" bpmnElement="Flow_DataValid_Yes">
+        <di:waypoint x="685" y="240" />
+        <di:waypoint x="725" y="240" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="699" y="222" width="13" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_DataValid_No_di" bpmnElement="Flow_DataValid_No">
+        <di:waypoint x="660" y="215" />
+        <di:waypoint x="660" y="110" />
+        <di:waypoint x="595" y="110" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="667" y="153" width="28" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_From_Koreksi_di" bpmnElement="Flow_From_Koreksi">
+        <di:waypoint x="485" y="110" />
+        <di:waypoint x="270" y="110" />
+        <di:waypoint x="270" y="215" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_To_CalcIKE_di" bpmnElement="Flow_To_CalcIKE">
+        <di:waypoint x="835" y="240" />
+        <di:waypoint x="875" y="240" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_To_DetectWaste_di" bpmnElement="Flow_To_DetectWaste">
+        <di:waypoint x="985" y="240" />
+        <di:waypoint x="1025" y="240" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_To_CalcFinancial_di" bpmnElement="Flow_To_CalcFinancial">
+        <di:waypoint x="1135" y="240" />
+        <di:waypoint x="1175" y="240" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_To_GatewayWaste_di" bpmnElement="Flow_To_GatewayWaste">
+        <di:waypoint x="1285" y="240" />
+        <di:waypoint x="1325" y="240" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Waste_Yes_di" bpmnElement="Flow_Waste_Yes">
+        <di:waypoint x="1375" y="240" />
+        <di:waypoint x="1425" y="240" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1394" y="222" width="13" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Waste_No_di" bpmnElement="Flow_Waste_No">
+        <di:waypoint x="1350" y="265" />
+        <di:waypoint x="1350" y="350" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1354" y="300" width="72" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_To_EndNormal_di" bpmnElement="Flow_To_EndNormal">
+        <di:waypoint x="1405" y="390" />
+        <di:waypoint x="1445" y="390" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Copilot_To_MergeReview_di" bpmnElement="Flow_Copilot_To_MergeReview">
+        <di:waypoint x="1535" y="240" />
+        <di:waypoint x="1575" y="240" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_To_Review_di" bpmnElement="Flow_To_Review">
+        <di:waypoint x="1625" y="240" />
+        <di:waypoint x="1665" y="240" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_To_GatewayReview_di" bpmnElement="Flow_To_GatewayReview">
+        <di:waypoint x="1775" y="240" />
+        <di:waypoint x="1815" y="240" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Review_Approved_di" bpmnElement="Flow_Review_Approved">
+        <di:waypoint x="1865" y="240" />
+        <di:waypoint x="1905" y="240" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1869" y="222" width="44" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Review_Simulate_di" bpmnElement="Flow_Review_Simulate">
+        <di:waypoint x="1840" y="215" />
+        <di:waypoint x="1840" y="110" />
+        <di:waypoint x="1775" y="110" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1846" y="153" width="41" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_From_ChatCopilot_di" bpmnElement="Flow_From_ChatCopilot">
+        <di:waypoint x="1665" y="110" />
+        <di:waypoint x="1600" y="110" />
+        <di:waypoint x="1600" y="215" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Review_Reject_di" bpmnElement="Flow_Review_Reject">
+        <di:waypoint x="1840" y="265" />
+        <di:waypoint x="1840" y="372" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1846" y="305" width="34" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Fork_WorkOrder_di" bpmnElement="Flow_Fork_WorkOrder">
+        <di:waypoint x="1930" y="215" />
+        <di:waypoint x="1930" y="170" />
+        <di:waypoint x="1995" y="170" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Fork_Report_di" bpmnElement="Flow_Fork_Report">
+        <di:waypoint x="1930" y="265" />
+        <di:waypoint x="1930" y="310" />
+        <di:waypoint x="1995" y="310" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Join_WorkOrder_di" bpmnElement="Flow_Join_WorkOrder">
+        <di:waypoint x="2105" y="170" />
+        <di:waypoint x="2170" y="170" />
+        <di:waypoint x="2170" y="215" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Join_Report_di" bpmnElement="Flow_Join_Report">
+        <di:waypoint x="2105" y="310" />
+        <di:waypoint x="2170" y="310" />
+        <di:waypoint x="2170" y="265" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_To_EndAudit_di" bpmnElement="Flow_To_EndAudit">
+        <di:waypoint x="2195" y="240" />
+        <di:waypoint x="2235" y="240" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
