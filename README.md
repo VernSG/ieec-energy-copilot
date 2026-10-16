@@ -127,8 +127,8 @@ flowchart TD
 
 1. **Clone the Repository:**
    ```bash
-   git clone https://github.com/VernSG/Angel-Hack.git
-   cd Angel-Hack
+   git clone https://github.com/VernSG/ieec-energy-copilot.git
+   cd ieec-energy-copilot
    ```
 
 2. **Install PHP & JavaScript Dependencies:**
